@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Preop Non-Cardiac</title>
+  <meta name="description" content="Pre-operative evaluation and perioperative management for non-cardiac surgery: cardiac, pulmonary, kidney, diabetes and medication plan with plain-text export.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="wrap header-inner">
+      <div>
+        <h1>Pre-operative Evaluation · Non-Cardiac Surgery</h1>
+        <p class="sub">2022 ESC · 2024 AHA/ACC · ADA 2026 · CHEST 2022 · ADQI · institutional protocol</p>
+      </div>
+      <div class="header-actions">
+        <button type="button" class="btn ghost" id="btn-example">Load example</button>
+        <button type="button" class="btn ghost" id="btn-reset">Reset</button>
+        <button type="button" class="btn" id="btn-export">Export plan</button>
+      </div>
+    </div>
+    <div class="statusbar" aria-live="polite">
+      <div class="wrap status-inner" id="statusbar"></div>
+    </div>
+  </header>
+
+  <div class="wrap layout">
+    <nav class="tabs" role="tablist" aria-label="Sections" id="tabs"></nav>
+
+    <main id="form">
+      <!-- 1 Patient & surgery -->
+      <section class="panel" id="tab-patient" role="tabpanel">
+        <article class="card">
+          <h2>Patient</h2>
+          <div class="grid fields" id="patient-fields"></div>
+          <h3 class="mt">Laboratory</h3>
+          <div class="grid fields" id="lab-fields"></div>
+          <div class="metrics" id="derived"></div>
+        </article>
+        <article class="card">
+          <h2>Surgery</h2>
+          <h3>Urgency</h3>
+          <div id="urgency-a"></div>
+          <h3 class="mt">Surgical risk (30-day CV death, MI, stroke)</h3>
+          <div class="risk-cards" id="surgrisk-a"></div>
+          <h3 class="mt">Procedural bleeding risk</h3>
+          <div class="risk-cards" id="bleedrisk-a"></div>
+          <h3 class="mt">Surgical stress grade</h3>
+          <div id="stress-a"></div>
+          <h3 class="mt">Procedure details</h3>
+          <div class="grid cols-2" id="surgery-details"></div>
+        </article>
+        <article class="card">
+          <h2>What this type of surgery means</h2>
+          <div class="explain" id="surgery-explain"></div>
+        </article>
+      </section>
+
+      <!-- 2 Questionnaire -->
+      <section class="panel" id="tab-questionnaire" role="tabpanel">
+        <p class="hint lead">Tick every item that applies. Answers flow into the cardiac, pulmonary, kidney and diabetes sections automatically.</p>
+        <div class="q-grid" id="questionnaire"></div>
+      </section>
+
+      <!-- 3 Cardiac -->
+      <section class="panel" id="tab-cardiac" role="tabpanel">
+        <div class="two-col">
+          <div>
+            <article class="card step" data-step="1">
+              <header><span class="step-no">Step 1</span><h3>Urgency of surgery</h3></header>
+              <div id="urgency-b"></div>
+            </article>
+            <article class="card step" data-step="2">
+              <header><span class="step-no">Step 2</span><h3>Active cardiac condition / risk-modifying disease</h3></header>
+              <div class="grid cols-2">
+                <fieldset><legend>Active cardiac condition</legend><div id="active-b"></div></fieldset>
+                <fieldset><legend>Risk-modifying disease</legend><div id="rm-b"></div></fieldset>
+              </div>
+              <fieldset class="mt"><legend>Physical frailty phenotype <span class="badge" id="frailty-score">0/5</span></legend><div id="frailty-b"></div></fieldset>
+            </article>
+            <article class="card step" data-step="3">
+              <header><span class="step-no">Step 3</span><h3>Clinical risk factors</h3></header>
+              <div id="rf-b"></div>
+            </article>
+            <article class="card step" data-step="4">
+              <header><span class="step-no">Step 4</span><h3>Surgical risk and functional capacity</h3></header>
+              <div class="risk-cards compact" id="surgrisk-b"></div>
+              <h4>Functional capacity</h4>
+              <div id="fc-b"></div>
+              <details class="dasi">
+                <summary>DASI calculator <span class="badge" id="dasi-out">–</span></summary>
+                <div id="dasi-list"></div>
+              </details>
+            </article>
+            <article class="card">
+              <h3>Guideline testing and management</h3>
+              <div id="cardiac-guideline"></div>
+            </article>
+          </div>
+          <aside class="result-col">
+            <div class="card result" id="cardiac-result" aria-live="polite"></div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- 4 Pulmonary -->
+      <section class="panel" id="tab-pulmonary" role="tabpanel">
+        <div class="two-col">
+          <div>
+            <article class="card"><h3>Pulmonary questionnaire</h3><div id="pulm-q"></div></article>
+            <article class="card" id="lung-card"><h3>Lung resection: predicted post-operative function</h3>
+              <p class="hint">Shown when lung resection is ticked under procedure details.</p>
+              <div class="grid fields" id="lung-fields"></div>
+              <div class="out" id="lung-out"></div>
+            </article>
+          </div>
+          <aside class="result-col"><div class="card result" id="pulm-result"></div></aside>
+        </div>
+      </section>
+
+      <!-- 5 Kidney -->
+      <section class="panel" id="tab-renal" role="tabpanel">
+        <div class="two-col">
+          <div>
+            <article class="card"><h3>Kidney questionnaire</h3><div id="renal-q"></div>
+              <h4>Imaging contrast</h4><div id="renal-contrast"></div></article>
+          </div>
+          <aside class="result-col"><div class="card result" id="renal-result"></div></aside>
+        </div>
+      </section>
+
+      <!-- 6 Diabetes & endocrine -->
+      <section class="panel" id="tab-endocrine" role="tabpanel">
+        <div class="two-col">
+          <div>
+            <article class="card"><h3>Endocrine questionnaire</h3><div id="endo-q"></div>
+              <div class="grid fields narrow" id="endo-labs"></div></article>
+            <article class="card" id="dm-card"><h3>Diabetes medications</h3><div id="dm-drugs"></div>
+              <h4>Insulin dose calculator</h4><div class="grid fields" id="insulin-fields"></div></article>
+            <article class="card" id="steroid-card"><h3>Glucocorticoid: surgical stress grade</h3><div id="stress-b"></div></article>
+          </div>
+          <aside class="result-col"><div class="card result" id="endo-result"></div></aside>
+        </div>
+      </section>
+
+      <!-- 7 Medications -->
+      <section class="panel" id="tab-meds" role="tabpanel">
+        <article class="card">
+          <h3>Medication plan <span class="hint">D0 = day of surgery</span></h3>
+          <div id="med-summary"></div>
+          <div id="nomeds"></div>
+          <p class="hint">Bleeding risk and CrCl from tab 1 drive the schedules below. Tick each drug the patient takes.</p>
+        </article>
+        <details class="card med" open>
+          <summary><h3>Antiplatelet</h3><span class="pill" id="bleed-pill"></span></summary>
+          <div id="ap-list"></div>
+          <div class="out" id="ap-out"></div>
+        </details>
+        <details class="card med" open>
+          <summary><h3>Anticoagulant</h3></summary>
+          <div id="ac-list"></div>
+          <div id="thromb-block">
+            <h4>Peri-operative thrombotic risk</h4>
+            <p class="hint">AF uses CHADS₂ / CHA₂DS₂-VASc calculated from the questionnaire: <b id="af-scores">–</b></p>
+            <div class="grid cols-2" id="thromb-list"></div>
+          </div>
+          <div class="out" id="ac-out"></div>
+        </details>
+        <div id="drug-groups"></div>
+      </section>
+
+      <!-- 8 Plan -->
+      <section class="panel" id="tab-plan" role="tabpanel">
+        <article class="card">
+          <div class="plan-actions">
+            <button type="button" class="btn" id="btn-copy">Copy plain text</button>
+            <button type="button" class="btn ghost" id="btn-download">Download .txt</button>
+            <button type="button" class="btn ghost" id="btn-print">Print</button>
+            <span class="copy-status" id="copy-status" aria-live="polite"></span>
+          </div>
+          <div id="missing"></div>
+          <h3>Medication plan</h3>
+          <div id="plan-meds"></div>
+          <h3 class="mt">Stepwise plan (plain text)</h3>
+          <pre class="plaintext" id="plaintext"></pre>
+        </article>
+      </section>
+
+      <div class="pager">
+        <button type="button" class="btn ghost" id="btn-prev">← Back</button>
+        <button type="button" class="btn" id="btn-next">Next →</button>
+      </div>
+    </main>
+  </div>
+
+  <footer class="wrap foot">
+    <p>Decision support for clinicians. Final decisions rest with the treating physician. No data leaves this browser.</p>
+  </footer>
+
+  <script src="js/data.js"></script>
+  <script src="js/rules.js"></script>
+  <script src="js/report.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
