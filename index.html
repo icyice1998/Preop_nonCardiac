@@ -51,6 +51,10 @@
           <h3 class="mt">Procedure details</h3>
           <div class="grid cols-2" id="surgery-details"></div>
         </article>
+        <article class="card">
+          <h2>What this type of surgery means</h2>
+          <div class="explain" id="surgery-explain"></div>
+        </article>
       </section>
 
       <!-- 2 Questionnaire -->
@@ -142,7 +146,12 @@
 
       <!-- 7 Medications -->
       <section class="panel" id="tab-meds" role="tabpanel">
-        <article class="card"><div id="nomeds"></div><p class="hint">Bleeding risk, surgery date and CrCl from tab 1 drive the schedules below.</p></article>
+        <article class="card">
+          <h3>Medication plan <span class="hint">D0 = day of surgery</span></h3>
+          <div id="med-summary"></div>
+          <div id="nomeds"></div>
+          <p class="hint">Bleeding risk and CrCl from tab 1 drive the schedules below. Tick each drug the patient takes.</p>
+        </article>
         <details class="card med" open>
           <summary><h3>Antiplatelet</h3><span class="pill" id="bleed-pill"></span></summary>
           <div id="ap-list"></div>
@@ -171,6 +180,9 @@
             <span class="copy-status" id="copy-status" aria-live="polite"></span>
           </div>
           <div id="missing"></div>
+          <h3>Medication plan</h3>
+          <div id="plan-meds"></div>
+          <h3 class="mt">Stepwise plan (plain text)</h3>
           <pre class="plaintext" id="plaintext"></pre>
         </article>
       </section>

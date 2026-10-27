@@ -188,6 +188,9 @@
       if (s.ihd || d.rcri.score >= 2) add('Poor functional capacity + high likelihood of CAD / high clinical risk: stress imaging before high-risk elective surgery.', 'I');
       else if (s.priorPci || s.cabg) add('Asymptomatic with prior PCI/CABG and poor functional capacity: consider stress imaging.', 'IIa');
     }
+    if (r === 'intermediate' && d.poorFC && d.cvRiskFactors > 0 && (s.ihd || s.sx_chestPain)) add('Intermediate-risk surgery, risk factors, poor functional capacity and ischemia concern: stress imaging may be considered.', 'IIb');
+    if (s.ihd && !s.ac_recentMI && (r === 'low' || r === 'intermediate')) add('Stable CCS with low/intermediate-risk surgery: routine pre-op coronary angiography NOT recommended.', 'III');
+    if (r) add('Routine stress imaging before NCS is not recommended outside the indications above.', 'III');
     if ((r === 'intermediate' || r === 'high') && (group !== 'low' || d.symptoms)) {
       add('Post-operative surveillance: hs-cTn at baseline and 24 h, 48 h after surgery; ΔhsTn > ULN = PMI → ECG, echo, find cause.', 'I');
     }
@@ -303,6 +306,9 @@
       action: 'stop',
       summary: pci === 'gt1y' ? 'PCI > 1 year and high bleeding risk: stop per schedule.' : 'Stop antiplatelet per schedule (secondary prevention: discuss keeping aspirin when bleeding risk allows).',
       drugs: selected.map(d => {
+        if (d.id === 'aspirin' && s.site_closedSpace) {
+          return { name: d.name, rec: 'Intracranial / spinal / vitreoretinal surgery: stop aspirin ≥ 7 days before (ESC I; last dose D-8). Restart when hemostasis secure.' };
+        }
         const w = stopWindow(d.stop, s.surgeryDate);
         return { name: d.name, rec: `${w.text} (last dose ${w.lastDose}). Restart 24 h (minor) to 24–48 h (major) after surgery when hemostasis secure.`, dates: w.dates };
       })
@@ -361,8 +367,34 @@
     }
     const hold = [];
     for (let d = lastDose + 1; d < resume; d++) hold.push(d);
-    notes.push('No heparin bridging for DOAC. Restart only when hemostasis is secure.');
+    notes.push(`ESC 2022 last-dose interval: ${escDoacHours(drug, crcl, high)}.`);
+    notes.push('No heparin bridging for DOAC (bridging harmful, AHA 3). Restart only when hemostasis is secure.');
     return { lastDose, resume, hold, notes };
+  }
+
+  // ESC 2022: hours from last DOAC dose to surgery by renal function
+  function escDoacHours(drug, crcl, high) {
+    if (crcl < 15) return 'no formal indication for DOAC at CrCl < 15';
+    if (drug === 'dabigatran') {
+      if (crcl < 30) return 'dabigatran not indicated at CrCl 15–29';
+      if (crcl < 50) return high ? '≥ 96 h' : '≥ 48 h';
+      if (crcl < 80) return high ? '≥ 72 h' : '≥ 36 h';
+      return high ? '≥ 48 h' : '≥ 24 h';
+    }
+    if (high) return '≥ 48 h';
+    return crcl < 30 ? '≥ 36 h' : '≥ 24 h';
+  }
+
+  function reversalNotes(s) {
+    if (s.urgency !== 'emergency' && s.urgency !== 'urgent') return [];
+    if (s.anticoag === 'warfarin') return ['Emergency/urgent on warfarin: check INR; vitamin K IV + 4F-PCC (FFP if PCC unavailable) to INR < 1.5.'];
+    if (!s.anticoag || s.anticoag === 'none') return [];
+    const agent = s.anticoag === 'dabigatran' ? 'idarucizumab (or 4F-PCC)' : 'andexanet alfa or 4F-PCC';
+    return [
+      'Emergency/urgent on DOAC: check PT, aPTT, anti-Xa / dTT (or drug level) and time of last dose.',
+      'Last intake > 12 h (normal renal function): proceed. Urgent: defer ≥ 12 h if safe or until coagulation normalizes.',
+      `Immediate surgery with recent intake and high bleeding risk: reverse with ${agent}; recheck coagulation.`
+    ];
   }
 
   function warfarinPlan({ bleeding, thrombotic }) {
@@ -579,10 +611,14 @@
       if (!s['dm_' + def.id]) continue;
       if (def.options) {
         const o = def.options.find(x => x.id === s['dmopt_' + def.id]);
-        drugs.push({ name: def.name, rec: o ? `${o.label}: ${o.rec}` : 'Select the GLP-1 RA plan (aspiration risk vs glycemic need).', stop: o && o.stop });
-      } else drugs.push({ name: def.name, rec: def.rec, stop: def.stop });
+        const raw = o ? o.rec : 'Select the GLP-1 RA plan (aspiration risk vs glycemic need).';
+        drugs.push({ name: def.name, rec: o ? `${o.label}: ${o.rec}` : raw, raw, stop: o && o.stop });
+      } else drugs.push({ name: def.name, rec: def.rec, raw: def.rec, stop: def.stop });
     }
-    if (s.dm_sglt2 && s.urgency !== 'elective') drugs.push({ name: 'SGLT2i not held (non-elective)', rec: 'Check ketones and anion gap; hydrate; insulin + dextrose plan; euglycemic DKA → IV fluid + insulin + dextrose.' });
+    if (s.dm_sglt2 && s.urgency !== 'elective') {
+      const t = 'Missed hold / non-elective: check ketones and anion gap; hydrate; insulin + dextrose plan; euglycemic DKA → IV fluid + insulin + dextrose.';
+      drugs.push({ name: 'SGLT2i not held', rec: t, raw: t });
+    }
 
     const ins = insulinPlan(s);
     const majorOrLong = s.surgRisk === 'high' || s.surgRisk === 'intermediate' || s.longDuration;
@@ -638,20 +674,68 @@
   }
 
   // ---------- Cardiac comorbidity specifics ----------
-  function cardiacSpecifics(s) {
+  function cardiacSpecifics(s, d) {
     const out = [];
-    if (s.vhd_AS && (s.surgRisk === 'intermediate' || s.surgRisk === 'high') && s.urgency === 'elective') out.push('Symptomatic severe AS before elective intermediate/high-risk surgery: AVR (SAVR or TAVI) first.');
-    if (s.vhd_AR) out.push('Severe AR (symptomatic or LVESD > 50 mm / LVEF ≤ 50%) before elective intermediate/high-risk surgery: valve surgery first.');
-    if (s.vhd_MS) out.push('Moderate–severe rheumatic MS with symptoms or SPAP > 50 mmHg: PMC or surgery before elective intermediate/high-risk surgery.');
-    if (s.vhd_MR) out.push('Severe primary MR (symptomatic or LV dysfunction): valve intervention before intermediate/high-risk surgery.');
-    if (s.rm_cied) {
-      out.push('CIED: interrogate device pre-op; bipolar electrocautery, short bursts < 5 s at lowest energy, keep > 15 cm from the generator.');
-      if (s.ciedDependent) out.push('Pacemaker-dependent: reprogram to asynchronous mode (or magnet) when electrocautery is above the umbilicus.');
-      if (s.ciedType === 'icd') out.push('ICD: suspend tachytherapy with continuous ECG monitoring and external defibrillator; restore after surgery.');
+    const elevated = s.surgRisk === 'intermediate' || s.surgRisk === 'high';
+    const planned = s.urgency === 'elective' || s.urgency === 'timeSensitive';
+    const lvef = num(s.lvef);
+    // Aortic stenosis (AHA 2024 / ESC 2022)
+    if (s.vhd_AS || s.vhd_ASasx) {
+      out.push('Severe AS: MDT (cardiology, anesthesia, surgery); TTE if not within 1 year (I).');
+      const needsAvr = s.vhd_AS || (s.vhd_ASasx && lvef != null && lvef < 50);
+      if (needsAvr && planned && elevated) {
+        out.push(s.avrCandidate === 'no'
+          ? 'Not an AVR candidate: consider BAV, minimally invasive alternative, palliation, or proceed after shared decision with strict monitoring (IIb).'
+          : 'Symptomatic severe AS (or LVEF < 50%) before elevated-risk surgery: evaluate for AVR (TAVI/SAVR) first (I).');
+      } else if (s.vhd_ASasx && (lvef == null || lvef >= 50)) {
+        out.push(s.surgRisk === 'low'
+          ? 'Asymptomatic severe AS, LVEF ≥ 50%, low-risk surgery: reasonable to proceed (2a).'
+          : 'Asymptomatic severe AS, LVEF ≥ 50%, elevated-risk surgery: AVR first if surgery can be delayed; otherwise team decision.');
+      }
     }
-    if (s.hf) out.push('HF: continue GDMT except SGLT2i (hold 3–4 days); decompensated HF → defer elective surgery.');
+    if (s.vhd_MS) {
+      out.push('Severe MS: evaluate for mitral intervention (PMC or surgery) before elective surgery (I).');
+      out.push('If MS cannot be treated first: invasive hemodynamic monitoring (2a); heart-rate control with beta-blocker, CCB, ivabradine or digoxin (2b).');
+    }
+    if (s.vhd_AR) out.push('Severe AR (symptomatic or LVESD > 50 mm / LVEF ≤ 50%): valve surgery before elective intermediate/high-risk surgery.');
+    if (s.vhd_MR) out.push('Severe primary MR (symptomatic or LV dysfunction): repair/TEER before intermediate/high-risk surgery (IIa); otherwise strict monitoring.');
+    if (s.vhd_regurgAsx) out.push('Asymptomatic moderate–severe MR/AR with normal LV function (and PASP < 50): reasonable to proceed with elective surgery (2a).');
+    // CIED (AHA 2024)
+    if (s.rm_cied) {
+      out.push('CIED: interrogate before surgery; bipolar cautery, short bursts < 5 s, > 15 cm from generator; have a magnet available.');
+      if (!s.emiAbove) out.push('EMI below the umbilicus: no reprogramming or magnet needed (1).');
+      else if (s.ciedType === 'icd') out.push(s.ciedDependent ? 'ICD, pacemaker-dependent, EMI above umbilicus: reprogram to asynchronous mode and disable ICD therapy (1); external defibrillator ready.' : 'ICD, not dependent, EMI above umbilicus: magnet or reprogram to disable tachytherapies (1); external defibrillator ready.');
+      else out.push(s.ciedDependent ? 'Pacemaker-dependent, EMI above umbilicus: magnet or reprogram to asynchronous mode (1).' : 'Pacemaker, not dependent: no reprogramming needed; consider disabling rate response (1).');
+    }
+    if (s.hf) out.push(`HF${lvef != null ? ` (LVEF ${lvef}%)` : ''}: continue GDMT except SGLT2i (hold 3–4 days); decompensated HF → defer elective surgery. 90-day mortality rises as LVEF falls (≈ 8% if < 30%).`);
+    if (s.rf_ht) out.push('Hypertension: do not defer surgery for stage 1–2 HT (ESC III); avoid large BP swings, especially hypotension (I); new HT before high-risk elective surgery → screen organ damage (I).');
+    if (s.pulmHT || s.rm_severePH) out.push('Pulmonary hypertension: continue PAH therapy (I); severe PAH → hemodynamic monitoring ≥ 24 h post-op (I); right HF → optimize diuretic ± IV prostacyclin with PAH expert (I); inodilators per hemodynamics (IIa).');
     if (s.ieHighRisk && s.site_dental) out.push('IE prophylaxis indicated (high-risk patient + oro-dental procedure): single dose 30–60 min before.');
     return out;
+  }
+
+  // Pharmacological risk reduction for drugs the patient is NOT yet taking
+  function pharmacoInitiation(s, d) {
+    const out = [];
+    const ascvd = s.ihd || s.cvd || s.pad || s.priorPci || s.cabg;
+    if (!s.drug_statin && (ascvd || (d.dm && (num(s.age) || 0) >= 40))) out.push({ text: 'Statin-naive with indication (ASCVD or diabetes ≥ 40 y): start statin peri-operatively for long-term use.', cls: 'I' });
+    if (!s.drug_bb) {
+      if (s.surgRisk === 'high' && d.cvRiskFactors + (num(s.age) >= 65 ? 1 : 0) >= 2) out.push({ text: 'Beta-blocker may be started well in advance (optimally > 7 days, titrate) of high-risk surgery with ≥ 2 clinical risk factors.', cls: 'IIb' });
+      else if (s.ihd) out.push({ text: 'Known CAD/ischemia: beta-blocker may be started in advance (> 7 days) if a new indication exists.', cls: 'IIb' });
+      out.push({ text: 'Never start a beta-blocker on the day of surgery; routine peri-operative initiation is not recommended.', cls: 'III' });
+    }
+    if (d.dm && num(s.hba1c) == null) out.push({ text: 'Check HbA1c if not done within 3 months before elective surgery.', cls: 'IIa' });
+    return out;
+  }
+
+  // Short action tag for a medication recommendation
+  function actionTag(rec) {
+    if (/consult/i.test(rec) && !/continue/i.test(rec.slice(0, 12))) return 'CONSULT';
+    if (/^(stop|taper|hold [≥\d])|stop [\d≥]|hold ≥|hold 7 days|interrupt/i.test(rec)) return 'STOP';
+    if (/hold on the (morning|day)/i.test(rec)) return 'HOLD D0';
+    if (/continue|may continue/i.test(rec)) return 'CONTINUE';
+    if (/select/i.test(rec)) return 'CHOOSE';
+    return 'REVIEW';
   }
 
   // ---------- Completeness (mandatory items) ----------
@@ -659,7 +743,6 @@
     const m = [];
     if (!s.age) m.push('Patient age');
     if (!s.sex) m.push('Patient sex');
-    if (!s.surgeryDate) m.push('Date of surgery');
     if (!s.urgency) m.push('Surgical urgency');
     if (!s.surgRisk) m.push('Surgical risk category');
     if (!s.bleedRisk) m.push('Procedural bleeding risk');
@@ -680,7 +763,8 @@
   const api = {
     LEVELS, addDays, formatDate, dayLabel, cockcroftGault, bmi, frailtyScore, derive, rcri, dasi,
     cardiacRisk, escTesting, ahaPathway, pciTiming, daptAdvice, stopWindow, antiplateletPlan,
-    chads2, cha2ds2vasc, afLevel, thromboticRisk, doacSchedule, warfarinPlan, bridgingDose, neuraxialNotes,
+    chads2, cha2ds2vasc, afLevel, thromboticRisk, doacSchedule, escDoacHours, reversalNotes, warfarinPlan, bridgingDose, neuraxialNotes,
+    pharmacoInitiation, actionTag,
     ppcRisk, ppoLung, renalPlan, dmPlan, insulinPlan, steroidPlan, cardiacSpecifics, missing
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

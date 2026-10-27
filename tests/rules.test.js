@@ -152,3 +152,36 @@ test('missing mandatory items', () => {
   assert.ok(m.includes('Surgical urgency'));
   assert.ok(m.includes('Medication review (tick drugs or "no regular medication")'));
 });
+
+test('aspirin 7 days for closed-space surgery', () => {
+  const p = R.antiplateletPlan({ ap_aspirin: true, bleedRisk: 'high', site_closedSpace: true }, D.antiplatelets);
+  assert.match(p.drugs[0].rec, /≥ 7 days/);
+});
+
+test('ESC DOAC hours by renal function', () => {
+  assert.equal(R.escDoacHours('dabigatran', 60, true), '≥ 72 h');
+  assert.equal(R.escDoacHours('dabigatran', 40, false), '≥ 48 h');
+  assert.equal(R.escDoacHours('apixaban', 20, false), '≥ 36 h');
+  assert.equal(R.escDoacHours('apixaban', 20, true), '≥ 48 h');
+});
+
+test('reversal only for emergency/urgent', () => {
+  assert.equal(R.reversalNotes({ urgency: 'elective', anticoag: 'apixaban' }).length, 0);
+  assert.match(R.reversalNotes({ urgency: 'emergency', anticoag: 'dabigatran' })[2], /idarucizumab/);
+});
+
+test('specific conditions: AS, CIED, PAH', () => {
+  const sp = s => R.cardiacSpecifics(s, R.derive(s));
+  assert.ok(sp({ vhd_AS: true, surgRisk: 'high', urgency: 'elective' }).some(t => /evaluate for AVR/.test(t)));
+  assert.ok(sp({ vhd_ASasx: true, lvef: 60, surgRisk: 'low' }).some(t => /reasonable to proceed/.test(t)));
+  assert.ok(sp({ rm_cied: true, ciedType: 'icd', ciedDependent: true, emiAbove: true }).some(t => /asynchronous mode and disable ICD/.test(t)));
+  assert.ok(sp({ rm_cied: true }).some(t => /below the umbilicus/.test(t)));
+  assert.ok(sp({ pulmHT: true }).some(t => /continue PAH therapy/.test(t)));
+});
+
+test('drug initiation advice', () => {
+  const s = { ihd: true, surgRisk: 'high', age: 70, rf_ht: true };
+  const x = R.pharmacoInitiation(s, R.derive(s));
+  assert.ok(x.some(i => /Statin-naive/.test(i.text) && i.cls === 'I'));
+  assert.ok(x.some(i => /day of surgery/.test(i.text) && i.cls === 'III'));
+});

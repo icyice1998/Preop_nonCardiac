@@ -11,9 +11,7 @@
 
   // ---------- Patient & labs ----------
   data.patientFields = [
-    F('name', 'Name', 'text'), F('hn', 'HN', 'text'), F('assessor', 'Assessor', 'text'),
-    F('date', 'Assessment date', 'date'), F('operation', 'Planned operation', 'text'),
-    F('surgeryDate', 'Date of surgery', 'date'),
+    F('hn', 'HN (optional)', 'text'), F('operation', 'Planned operation', 'text'),
     F('age', 'Age', 'num', { unit: 'y', min: 0, max: 120 }),
     F('sex', 'Sex', 'select', { opts: [opt('M', 'Male'), opt('F', 'Female')] }),
     F('weight', 'Weight', 'num', { unit: 'kg', step: 0.1 }),
@@ -38,6 +36,29 @@
     opt('timeSensitive', 'Time-sensitive', 'Can be delayed up to 3 months (e.g. cancer)'),
     opt('elective', 'Elective', 'Can be delayed for complete evaluation')
   ];
+
+  // What each surgical category means for the work-up (shown in Step 1 explanations)
+  data.urgencyMeaning = {
+    emergency: 'No time for evaluation: operate now; no test may delay surgery; manage peri-operatively (monitoring, reversal of anticoagulant if needed).',
+    urgent: 'Hours available (2–24 h): treat only reversible problems (ACS, arrhythmia, decompensated HF, anticoagulant); no elective testing.',
+    timeSensitive: 'Up to 3 months: multidisciplinary, individualized testing; optimize what is possible without losing the surgical window.',
+    elective: 'Complete evaluation and optimization; defer surgery for active cardiac conditions, recent PCI, or uncontrolled disease.'
+  };
+  data.surgRiskMeaning = {
+    low: 'Low risk (< 1% 30-day CV death/MI/stroke): no pre-op cardiac testing regardless of patient risk.',
+    intermediate: 'Intermediate risk (1–5%): ECG + biomarkers if age ≥ 65, CV risk factors or established CVD; assess functional capacity.',
+    high: 'High risk (> 5%): as intermediate, plus cardiology consultation if established CVD; stress imaging if poor functional capacity and CAD likely.'
+  };
+  data.bleedMeaning = {
+    minimal: 'Minimal bleeding: continue warfarin; DOAC hold only on the day of surgery; antiplatelets usually continued.',
+    lowMod: 'Low/moderate bleeding: short DOAC interruption (≈ 1 day); warfarin stopped 5 days; DAPT may continue (ESC).',
+    high: 'High bleeding: longer DOAC interruption (≈ 2 days), stop warfarin 5 days, interrupt P2Y12 inhibitor; aspirin stop 7 days for intracranial/spinal/vitreoretinal surgery.'
+  };
+  data.stressMeaning = {
+    g1: 'Grade I: no steroid supplementation beyond usual dose.',
+    g2: 'Grade II: hydrocortisone 25–50 mg at induction then 25 mg q 6 h.',
+    g3: 'Grade III: hydrocortisone 50–100 mg at induction then 25–50 mg q 6 h.'
+  };
 
   data.surgicalRisk = {
     high: {
@@ -116,6 +137,7 @@
     F('site_lungResection', 'Lung resection (lobectomy / pneumonectomy)'),
     F('site_neuro', 'Neurosurgery'),
     F('site_headNeck', 'Head and neck surgery'),
+    F('site_closedSpace', 'Intracranial / spinal neurosurgery or vitreoretinal eye surgery (closed space)'),
     F('site_dental', 'Oro-dental procedure manipulating gingiva / periapical region'),
     F('site_openGI', 'Opens GI tract / delayed abdominal closure / intraperitoneal mesh'),
     F('longDuration', 'Expected duration > 3 hours'),
@@ -159,7 +181,7 @@
         F('pciMonths', 'Months since PCI', 'num', { show: 'priorPci', step: 0.5 }),
         F('cabg', 'Prior CABG'),
         F('hf', 'History of heart failure'),
-        F('lvef', 'LVEF (if known)', 'num', { show: 'hf', unit: '%' }),
+        F('lvef', 'LVEF (if known)', 'num', { unit: '%' }),
         F('cvd', 'Stroke or TIA (any time)'),
         F('pad', 'Peripheral arterial disease'),
         F('af', 'Atrial fibrillation / flutter'),
@@ -174,11 +196,15 @@
     {
       id: 'q-rm', title: 'Risk-modifying disease (institutional Step 2)', fields: data.riskModifying.concat([
         F('vhd_AS', 'Severe AS, symptomatic', 'cb', { showAny: ['rm_asxVHD', 'ac_symVHD'] }),
+        F('vhd_ASasx', 'Severe AS, asymptomatic', 'cb', { showAny: ['rm_asxVHD', 'ac_symVHD'] }),
+        F('avrCandidate', 'Candidate for AVR (TAVI / SAVR)', 'radio', { showAny: ['vhd_AS', 'vhd_ASasx'], opts: [opt('yes', 'Yes'), opt('no', 'No')] }),
         F('vhd_AR', 'Severe AR: symptomatic, or LVESD > 50 mm / LVEF ≤ 50%', 'cb', { showAny: ['rm_asxVHD', 'ac_symVHD'] }),
         F('vhd_MS', 'Moderate–severe rheumatic MS with symptoms or SPAP > 50 mmHg', 'cb', { showAny: ['rm_asxVHD', 'ac_symVHD'] }),
         F('vhd_MR', 'Severe primary MR: symptomatic, or LVESD ≥ 40 mm / LVEF ≤ 60%', 'cb', { showAny: ['rm_asxVHD', 'ac_symVHD'] }),
+        F('vhd_regurgAsx', 'Moderate–severe MR/AR, asymptomatic, normal LV function (PASP < 50)', 'cb', { showAny: ['rm_asxVHD', 'ac_symVHD'] }),
         F('ciedType', 'Device', 'radio', { show: 'rm_cied', opts: [opt('pm', 'Pacemaker'), opt('icd', 'ICD / CRT-D'), opt('crtp', 'CRT-P')] }),
-        F('ciedDependent', 'Pacemaker-dependent', 'cb', { show: 'rm_cied' })
+        F('ciedDependent', 'Pacemaker-dependent', 'cb', { show: 'rm_cied' }),
+        F('emiAbove', 'Electrocautery (EMI) above the umbilicus', 'cb', { show: 'rm_cied' })
       ])
     },
     { id: 'q-frailty', title: 'Physical frailty phenotype (1 point each)', fields: data.frailty, inline: true },
@@ -348,12 +374,12 @@
   data.drugGroups = [
     {
       id: 'cv', title: 'Cardiovascular', items: [
-        { id: 'bb', name: 'Beta-blocker', rec: CONT_AM + ' Do not start routinely before surgery.' },
+        { id: 'bb', name: 'Beta-blocker', rec: CONT_AM + ' (ESC I / AHA 1). Do not stop abruptly.' },
         { id: 'ccb', name: 'Calcium channel blocker', rec: CONT_AM },
         {
           id: 'acei', name: 'ACE-I / ARB / ARNI', options: [
-            { id: 'ht', label: 'Indication: hypertension', rec: 'Hold on the morning of surgery (≥ 24 h before if high AKI risk); restart within 48 h when hemodynamically stable without AKI.' },
-            { id: 'chf', label: 'Indication: HF or poorly controlled HT', rec: 'Continue, including the morning dose (stable HF: continuation may be considered, ESC IIb).' }
+            { id: 'ht', label: 'Indication: hypertension', rec: 'Hold on the morning of surgery (ESC IIa); omitting 24 h before elevated-risk surgery may limit hypotension (AHA 2b); restart within 48 h when stable without AKI.' },
+            { id: 'chf', label: 'Indication: HFrEF or poorly controlled HT', rec: 'Continue, including the morning dose (HFrEF: AHA 2a).' }
           ]
         },
         {
@@ -365,10 +391,11 @@
         },
         { id: 'mra', name: 'MRA (spironolactone / eplerenone) for HF', rec: 'Compensated HF: reasonable to continue GDMT peri-operatively (AHA 2a); monitor K and creatinine.' },
         { id: 'sglt2hf', name: 'SGLT2 inhibitor for HF / CKD (non-diabetic)', rec: SGLT2, stop: [3, 3] },
+        { id: 'pah', name: 'PAH therapy (sildenafil, bosentan, prostacyclin)', rec: 'Continue chronic PAH therapy peri-operatively (ESC I); severe PAH: hemodynamic monitoring ≥ 24 h post-op.' },
         { id: 'digoxin', name: 'Digoxin', rec: CONT_AM },
         { id: 'hydralazine', name: 'Hydralazine', rec: CONT_AM },
         { id: 'nitrate', name: 'Nitrate', rec: CONT_AM },
-        { id: 'statin', name: 'Statin', rec: CONT_AM + ' Start peri-operatively if indicated.' },
+        { id: 'statin', name: 'Statin', rec: CONT_AM + ' (ESC I / AHA 1).' },
         { id: 'nonstatin', name: 'Non-statin lipid-lowering agent', rec: 'Stop a few days before surgery.' },
         { id: 'alpha', name: 'Alpha-blocker', rec: CONT_AM }
       ]
@@ -439,7 +466,7 @@
 
   // ---------- Diabetes (ADA 2026, departmental lecture) ----------
   data.dmDrugs = [
-    { id: 'metformin', name: 'Metformin', rec: 'Hold on the day of surgery; restart when eating and renal function stable.', hold: 0 },
+    { id: 'metformin', name: 'Metformin', rec: 'Hold on the day of surgery (ADA 2026); AHA 2024 rates continuation reasonable (2a) — follow local protocol. Hold before contrast or with AKI; restart when eating and renal function stable.', hold: 0 },
     { id: 'su', name: 'Sulfonylurea / glinide', rec: 'Hold on the day of surgery (hypoglycemia).', hold: 0 },
     { id: 'tzd', name: 'Thiazolidinedione', rec: 'Hold on the day of surgery (fluid retention).', hold: 0 },
     { id: 'dpp4', name: 'DPP-4 inhibitor', rec: 'Hold on the day of surgery.', hold: 0 },
@@ -481,6 +508,7 @@
     'Prowle JR, et al. Postoperative acute kidney injury in adult non-cardiac surgery: ADQI consensus. Nat Rev Nephrol. 2021;17:605–618.',
     'Kanda H, et al. Perioperative Management of Patients With End-Stage Renal Disease. J Cardiothorac Vasc Anesth. 2017;31:2251–2267.',
     'ACR Manual on Contrast Media, 2024.',
+    'Departmental lecture: Perioperative management in non-cardiac surgery (ACC 2024 & ESC 2022), 2025.',
     'Institutional protocol: Preop evaluation and Perioperative Medication Management (rev. 26 Dec 2024); departmental lectures, Phramongkutklao Hospital 2026.'
   ];
 

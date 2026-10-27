@@ -179,21 +179,20 @@
   };
   const LEVEL_CLS = { low: 'go', moderate: 'warn', high: 'stop' };
 
-  function calendar(from, to, rows, surgeryDate) {
+  function calendar(from, to, rows) {
     const days = [];
     for (let x = from; x <= to; x++) days.push(x);
-    const head = days.map(x => `<th class="${x === 0 ? 'd0' : ''}">${R.dayLabel(x)}${surgeryDate ? `<br><small>${esc(R.formatDate(R.addDays(surgeryDate, x)).replace(/ \d{4}$/, ''))}</small>` : ''}</th>`).join('');
+    const head = days.map(x => `<th class="${x === 0 ? 'd0' : ''}">${R.dayLabel(x)}</th>`).join('');
     const body = rows.map(r => `<tr><th scope="row">${esc(r.label)}</th>${days.map(x => { const c = r.cell(x); return `<td class="${c.cls}${x === 0 ? ' d0' : ''}">${esc(c.text)}</td>`; }).join('')}</tr>`).join('');
     return `<div class="cal-wrap"><table class="cal"><thead><tr><th></th>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
   }
 
   function anticoagHTML(plan, s) {
-    const sd = s.surgeryDate;
     if (plan.doac) {
       const x = plan.doac;
       if (x.incomplete) return ul(li(x.notes));
-      const line = `Last dose ${R.dayLabel(x.lastDose)}${sd ? ` (${R.formatDate(R.addDays(sd, x.lastDose))})` : ''}; resume ${R.dayLabel(x.resume)}${sd ? ` (${R.formatDate(R.addDays(sd, x.resume))})` : ''}.`;
-      return `<p><b>${esc(x.name)}</b>${plan.d.crcl != null ? ` · CrCl ${plan.d.crcl} mL/min` : ''}</p>${ul(li([line].concat(x.notes)))}${calendar(-5, 3, [{ label: x.name, cell: n => (n <= x.lastDose || n >= x.resume ? { text: 'Dose', cls: 'on' } : { text: 'Hold', cls: 'off' }) }], sd)}`;
+      const line = `Last dose ${R.dayLabel(x.lastDose)}; resume ${R.dayLabel(x.resume)}.`;
+      return `<p><b>${esc(x.name)}</b>${plan.d.crcl != null ? ` · CrCl ${plan.d.crcl} mL/min` : ''}</p>${ul(li([line].concat(x.notes)))}${calendar(-5, 3, [{ label: x.name, cell: n => (n <= x.lastDose || n >= x.resume ? { text: 'Dose', cls: 'on' } : { text: 'Hold', cls: 'off' }) }])}`;
     }
     if (plan.warfarin) {
       const w = plan.warfarin;
@@ -201,7 +200,7 @@
       if (w.status === 'stop' || w.status === 'bridge') {
         const rows = [{ label: 'Warfarin', cell: n => (n <= w.warfarinLast || n >= w.warfarinResume ? { text: 'Give', cls: 'on' } : { text: 'Hold', cls: 'off' }) }];
         if (w.status === 'bridge') rows.push({ label: 'Heparin', cell: n => (w.heparinDays.includes(n) ? { text: n === -1 ? 'Last*' : 'Give', cls: 'hep' } : n >= w.heparinResume ? { text: 'Give', cls: 'hep' } : n > -4 ? { text: 'Hold', cls: 'off' } : { text: '–', cls: '' }) });
-        h += calendar(-6, 4, rows, sd);
+        h += calendar(-6, 4, rows);
       }
       if (w.status === 'bridge') h += plan.bridgeDose ? ul(li([plan.bridgeDose.enoxaparin, plan.bridgeDose.bemiparin, plan.bridgeDose.note])) : ul(['Enter weight and creatinine to calculate LMWH dose.']);
       return h;
@@ -254,7 +253,8 @@
     g.push(`<h4>AHA 2024 stepwise</h4>${plan.aha.modifiers.length ? `<p class="hint">Risk modifiers: ${esc(plan.aha.modifiers.join(', '))}</p>` : ''}${ul(li(plan.aha.steps))}`);
     if (plan.pci) g.push(`<h4>Prior PCI</h4><p class="out-sum ${plan.pci.status}">${esc(plan.pci.text)}</p>`);
     if (plan.dapt) g.push(`<h4>DAPT (ESC)</h4>${ul([cls(plan.dapt.cls) + esc(plan.dapt.text)])}`);
-    if (plan.specifics.length) g.push(`<h4>Comorbidity-specific</h4>${ul(li(plan.specifics))}`);
+    if (plan.specifics.length) g.push(`<h4>Specific conditions</h4>${ul(li(plan.specifics))}`);
+    if (plan.initiation.length) g.push(`<h4>Drugs to start or avoid</h4>${ul(plan.initiation.map(x => cls(x.cls) + esc(x.text)))}`);
     if (plan.ie) g.push(`<h4>IE prophylaxis (single dose 30–60 min before)</h4>${ul([`No penicillin allergy: ${esc(plan.ie.noAllergy.join(' or '))}`, `Penicillin allergy: ${esc(plan.ie.allergy.join(' or '))}`])}`);
     $('#cardiac-guideline').innerHTML = g.join('');
 
@@ -297,7 +297,7 @@
       + (plan.dapt ? ul([cls(plan.dapt.cls) + 'ESC: ' + esc(plan.dapt.text)]) : '')
       + ul(li(plan.neuraxial.filter(n => /clopidogrel|ticagrelor/.test(n))));
     $('#af-scores').textContent = s.af ? `CHADS₂ ${plan.af.chads} · CHA₂DS₂-VASc ${plan.af.vasc} → ${R.afLevel(plan.af.chads, plan.af.vasc)}` : 'AF not ticked in questionnaire';
-    $('#ac-out').innerHTML = anticoagHTML(plan, s) + (plan.oacPciNote ? ul([esc(plan.oacPciNote)]) : '') + ul(li(plan.neuraxial.filter(n => !/clopidogrel|ticagrelor/.test(n))));
+    $('#ac-out').innerHTML = anticoagHTML(plan, s) + ul(li(plan.reversal)) + (plan.oacPciNote ? ul([esc(plan.oacPciNote)]) : '') + ul(li(plan.neuraxial.filter(n => !/clopidogrel|ticagrelor/.test(n))));
 
     for (const grp of D.drugGroups) {
       let n = 0;
@@ -318,6 +318,22 @@
       rec.hidden = !pd;
       rec.textContent = pd ? pd.rec + (pd.dates ? ` ${pd.dates}.` : '') : '';
     }
+
+    // Medication plan table and surgery explanation
+    const medHTML = plan.meds.length
+      ? `<div class="medplan">${plan.meds.map(m => `<div class="medrow"><span class="act act-${m.tag.replace(/\s.*/, '')}">${esc(m.tag)}</span><div><b>${esc(m.name)}</b>${m.timing ? `<small>${esc(m.timing)}</small>` : ''}</div></div>`).join('')}</div>`
+        + (plan.initiation.length ? `<h4>Start or avoid</h4>${ul(plan.initiation.map(x => cls(x.cls) + esc(x.text)))}` : '')
+      : `<p class="hint">${s.noMeds ? 'No regular medication.' : 'No medication ticked yet.'}</p>`;
+    $('#med-summary').innerHTML = medHTML;
+    $('#plan-meds').innerHTML = medHTML;
+    const ex = [];
+    const exStep = (n, title, val, meaning) => ex.push(`<div class="ex-step"><span class="ex-no">${n}</span><div><b>${esc(title)}:</b> ${esc(val || 'not set')}${meaning ? `<p>${esc(meaning)}</p>` : ''}</div></div>`);
+    exStep('1', 'Timing', (D.urgency.find(u => u.v === s.urgency) || {}).l, D.urgencyMeaning[s.urgency]);
+    exStep('2', 'Surgical risk', s.surgRisk && D.surgicalRisk[s.surgRisk].label, D.surgRiskMeaning[s.surgRisk]);
+    exStep('3', 'Bleeding risk', s.bleedRisk && D.bleedingRisk[s.bleedRisk].label, D.bleedMeaning[s.bleedRisk]);
+    exStep('4', 'Surgical stress', (D.surgicalStress.find(x => x.v === s.stressGrade) || {}).l, D.stressMeaning[s.stressGrade]);
+    exStep('5', 'RCRI high-risk surgery', d.rcri.items.some(i => /High-risk surgery/.test(i)) ? 'Yes (intraperitoneal, intrathoracic or suprainguinal vascular)' : 'No', `Pulmonary operative factors: ${p.op.join(', ') || 'none'}.`);
+    $('#surgery-explain').innerHTML = ex.join('');
 
     // Plan
     $('#missing').innerHTML = plan.missing.length
@@ -373,14 +389,14 @@
     const blob = new Blob([$('#plaintext').textContent], { type: 'text/plain;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `preop_${(s.hn || 'patient').replace(/[^\w-]/g, '')}_${s.surgeryDate || s.date || 'plan'}.txt`;
+    a.download = `preop_plan${s.hn ? '_' + s.hn.replace(/[^\w-]/g, '') : ''}.txt`;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
 
   // Teaching example: elderly woman with AF on apixaban, T2DM on insulin, CKD G3b, COPD, for right hemicolectomy
   const EXAMPLE = {
-    name: 'Example patient', hn: 'DEMO-001', operation: 'Open right hemicolectomy (colon cancer)', age: 72, sex: 'F', weight: 58, height: 155,
+    operation: 'Open right hemicolectomy (colon cancer)', age: 72, sex: 'F', weight: 58, height: 155,
     scr: 1.3, bun: 24, k: 4.2, hb: 10.5, albumin: 3.3, hba1c: 7.6, fpg: 150, spo2: 95,
     urgency: 'timeSensitive', surgRisk: 'intermediate', bleedRisk: 'high', stressGrade: 'g2', anesthesia: 'ga',
     site_intraperitoneal: true, longDuration: true, fluidShift: true,
@@ -393,21 +409,18 @@
   };
   function loadExample() {
     resetAll(false);
-    const d = new Date(); d.setDate(d.getDate() + 10);
-    Object.entries(Object.assign({ surgeryDate: d.toISOString().slice(0, 10) }, EXAMPLE)).forEach(([k, v]) => setValue(k, v));
+    Object.entries(EXAMPLE).forEach(([k, v]) => setValue(k, v));
     render();
   }
   function resetAll(ask = true) {
     if (ask && !confirm('Clear all entries?')) return;
     $$('[data-key]').forEach(el => { if (el.type === 'checkbox' || el.type === 'radio') el.checked = false; else el.value = ''; });
-    setValue('date', new Date().toISOString().slice(0, 10));
     render();
   }
 
   // ---------- Init ----------
   function init() {
     renderStatic();
-    setValue('date', new Date().toISOString().slice(0, 10));
     const form = $('#form');
     const onChange = e => {
       const el = e.target;

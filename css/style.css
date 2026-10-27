@@ -212,3 +212,38 @@ details.med[open] > summary { margin-bottom: 10px; }
   body, .card { background: #fff; color: #000; border: 0; box-shadow: none; padding: 0; }
   .plaintext { white-space: pre-wrap; max-height: none; border: 0; background: #fff; color: #000; font-size: 9.5pt; }
 }
+
+/* Medication plan */
+.medplan { display: grid; gap: 6px; margin-bottom: 10px; }
+.medrow { display: grid; grid-template-columns: 92px 1fr; gap: 10px; align-items: start; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.medrow small { margin-top: 1px; }
+.act { display: inline-block; text-align: center; font-size: .7rem; font-weight: 700; letter-spacing: .03em; border-radius: 5px; padding: .2rem .3rem; background: var(--surface-2); color: var(--muted); }
+.act-STOP { background: var(--stop-soft); color: var(--stop); }
+.act-HOLD { background: var(--warn-soft); color: var(--warn); }
+.act-CONTINUE { background: var(--go-soft); color: var(--go); }
+.act-BRIDGE { background: var(--hep-soft); color: var(--hep); }
+.act-ADJUST { background: var(--accent-soft); color: var(--accent); }
+.act-CONSULT { background: var(--stop-soft); color: var(--stop); outline: 1px dashed var(--stop); }
+
+/* Surgery explanation */
+.explain { display: grid; gap: 8px; }
+.ex-step { display: grid; grid-template-columns: 28px 1fr; gap: 8px; align-items: start; }
+.ex-no { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--surface); font-size: .78rem; font-weight: 700; }
+.ex-step p { margin: .15rem 0 0; color: var(--muted); font-size: .88rem; }
+
+@media (max-width: 640px) {
+  .wrap { padding: 0 12px; }
+  .sub { display: none; }
+  .header-inner { padding-top: 8px; padding-bottom: 6px; gap: .4rem; }
+  .header-actions { width: 100%; }
+  .header-actions .btn { flex: 1; padding: .4rem .3rem; font-size: .82rem; }
+  .card { padding: 12px; }
+  .q-grid { columns: 1; }
+  .fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .choice { font-size: .9rem; }
+  .choices.inline .choice { flex: 1 1 auto; }
+  .pager { position: sticky; bottom: 0; background: var(--bg); padding: 8px 0; margin: 0; border-top: 1px solid var(--border); z-index: 5; }
+  .pager .btn { min-width: 42%; }
+  .medrow { grid-template-columns: 80px 1fr; }
+  .cal { font-size: .7rem; }
+}
