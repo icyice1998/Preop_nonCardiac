@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Preop Non-Cardiac</title>
+  <meta name="description" content="Pre-operative cardiac risk evaluation and perioperative medication management for non-cardiac surgery.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="wrap header-inner">
+      <div>
+        <h1>Pre-operative Evaluation for Non-Cardiac Surgery</h1>
+        <p class="sub">Cardiac risk assessment and perioperative medication management · 2022 ESC / 2024 AHA-ACC</p>
+      </div>
+      <div class="header-actions">
+        <button type="button" class="btn ghost" id="btn-reset">Reset</button>
+        <button type="button" class="btn" id="btn-print">Print plan</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap" id="form">
+    <section class="card patient" aria-labelledby="pt-title">
+      <h2 id="pt-title">Patient</h2>
+      <div class="grid fields">
+        <label>Name<input id="p-name" type="text" autocomplete="off"></label>
+        <label>HN<input id="p-hn" type="text" autocomplete="off"></label>
+        <label>Assessor<input id="p-assessor" type="text" autocomplete="off"></label>
+        <label>Assessment date<input id="p-date" type="date"></label>
+        <label>Planned operation<input id="p-operation" type="text" autocomplete="off"></label>
+        <label>Date of surgery<input id="p-surgery-date" type="date"></label>
+        <label>Age (years)<input id="p-age" type="number" min="0" max="120" inputmode="numeric"></label>
+        <label>Sex
+          <select id="p-sex"><option value="">–</option><option value="M">Male</option><option value="F">Female</option></select>
+        </label>
+        <label>Body weight (kg)<input id="p-weight" type="number" min="0" step="0.1" inputmode="decimal"></label>
+        <label>Serum creatinine (mg/dL)<input id="p-scr" type="number" min="0" step="0.01" inputmode="decimal"></label>
+        <label>CrCl override (mL/min)<input id="p-crcl-manual" type="number" min="0" step="1" inputmode="numeric" placeholder="optional"></label>
+        <div class="metric" aria-live="polite"><span class="metric-label">CrCl (Cockcroft-Gault)</span><span id="crcl-out" class="metric-value">–</span></div>
+      </div>
+    </section>
+
+    <nav class="tabs" role="tablist">
+      <button role="tab" type="button" class="tab active" data-tab="cardiac" aria-selected="true">1 · Cardiac risk</button>
+      <button role="tab" type="button" class="tab" data-tab="meds" aria-selected="false">2 · Medications</button>
+      <button role="tab" type="button" class="tab" data-tab="summary" aria-selected="false">3 · Summary</button>
+    </nav>
+
+    <!-- ============ Cardiac risk ============ -->
+    <section class="panel active" id="tab-cardiac" role="tabpanel">
+      <div class="two-col">
+        <div class="steps">
+          <article class="card step" data-step="1">
+            <header><span class="step-no">Step 1</span><h3>Urgency of surgery</h3></header>
+            <div class="choices" id="urgency-list"></div>
+            <div class="sub-q" id="urgent-prep" hidden>
+              <p>Does the patient have cardiac or other disease that requires preparation before surgery?</p>
+              <div class="choices inline">
+                <label class="choice"><input type="radio" name="urgentPrep" value="no"><span>No</span></label>
+                <label class="choice"><input type="radio" name="urgentPrep" value="yes"><span>Yes</span></label>
+              </div>
+            </div>
+          </article>
+
+          <article class="card step" data-step="2">
+            <header><span class="step-no">Step 2</span><h3>Active cardiac condition and risk-modifying disease</h3></header>
+            <p class="hint">Tick every item that applies. Any item leads to consultation.</p>
+            <div class="grid cols-2">
+              <fieldset><legend>Active cardiac condition</legend><div class="choices" id="active-list"></div></fieldset>
+              <fieldset><legend>Risk-modifying disease</legend><div class="choices" id="riskmod-list"></div></fieldset>
+            </div>
+            <fieldset class="frailty">
+              <legend>Physical frailty phenotype <span class="badge" id="frailty-score">0/5</span></legend>
+              <p class="hint">1 point each. Score 3–5 counts as a risk-modifying condition.</p>
+              <div class="choices inline" id="frailty-list"></div>
+            </fieldset>
+          </article>
+
+          <article class="card step" data-step="3">
+            <header><span class="step-no">Step 3</span><h3>Clinical risk factors</h3></header>
+            <div class="choices cols-3" id="clinical-list"></div>
+          </article>
+
+          <article class="card step" data-step="4">
+            <header><span class="step-no">Step 4</span><h3>Surgical risk and functional capacity</h3></header>
+            <h4>Surgical risk by type of surgery</h4>
+            <div class="risk-cards" id="surgrisk-list"></div>
+            <div id="fc-block">
+              <h4>Functional capacity</h4>
+              <div class="choices" id="fc-list"></div>
+              <div class="sub-q" id="lowfc-block" hidden>
+                <p>Functional capacity &lt; 4 METs. Choose one of two options:</p>
+                <div class="choices">
+                  <label class="choice"><input type="radio" name="lowFcOption" value="accept"><span>Surgery is necessary; the patient and family have been informed and accept the risk</span></label>
+                  <label class="choice"><input type="radio" name="lowFcOption" value="biomarker"><span>Measure troponin and NT-proBNP</span></label>
+                </div>
+                <div class="sub-q" id="biomarker-block" hidden>
+                  <div class="choices inline">
+                    <label class="choice"><input type="radio" name="biomarker" value="normal"><span>Normal</span></label>
+                    <label class="choice"><input type="radio" name="biomarker" value="abnormal"><span>Abnormal</span></label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <aside class="result-col">
+          <div class="card result" id="cardiac-result" aria-live="polite"></div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ============ Medications ============ -->
+    <section class="panel" id="tab-meds" role="tabpanel">
+      <details class="card med" open>
+        <summary><h3>Procedural bleeding risk (Table 1)</h3><span class="pill" id="bleed-pill">not set</span></summary>
+        <p class="hint">Used for antiplatelet decisions after PCI and for anticoagulant interruption.</p>
+        <div class="risk-cards" id="bleeding-list"></div>
+      </details>
+
+      <details class="card med" open>
+        <summary><h3>1. Antiplatelet</h3></summary>
+        <div class="grid cols-2">
+          <fieldset><legend>Current drugs</legend><div class="choices" id="ap-list"></div></fieldset>
+          <fieldset><legend>Previous PCI</legend><div class="choices" id="pci-list"></div></fieldset>
+        </div>
+        <div class="out" id="ap-out"></div>
+      </details>
+
+      <details class="card med" open>
+        <summary><h3>2. Anticoagulant</h3></summary>
+        <fieldset><legend>Current anticoagulant</legend><div class="choices inline" id="ac-list"></div></fieldset>
+        <div id="thromb-block" hidden>
+          <h4>Perioperative thrombotic risk (Table 2)</h4>
+          <div class="grid cols-3" id="thromb-list"></div>
+          <fieldset class="af-calc">
+            <legend><label class="inline-check"><input type="checkbox" id="af-present"> Atrial fibrillation: CHADS₂ / CHA₂DS₂-VASc</label></legend>
+            <p class="hint">Age and sex are taken from the patient panel.</p>
+            <div class="choices inline" id="afscore-list"></div>
+            <p class="scores">CHADS₂ <b id="chads-out">–</b> · CHA₂DS₂-VASc <b id="vasc-out">–</b> · AF risk <b id="aflevel-out">–</b></p>
+          </fieldset>
+        </div>
+        <div class="out" id="ac-out"></div>
+      </details>
+
+      <div id="drug-groups"></div>
+
+      <details class="card med">
+        <summary><h3>6.1 Diabetes drugs</h3></summary>
+        <label class="inline-check"><input type="checkbox" id="dm-on"> Patient has diabetes on medication</label>
+        <div id="dm-block" hidden>
+          <div class="grid fields narrow"><label>HbA1c (%)<input id="dm-hba1c" type="number" step="0.1" min="3" max="20" inputmode="decimal"></label></div>
+          <div class="choices" id="dm-list"></div>
+          <div class="out" id="dm-out"></div>
+        </div>
+      </details>
+
+      <details class="card med">
+        <summary><h3>6.3 Glucocorticoid (adrenal insufficiency)</h3></summary>
+        <label class="inline-check"><input type="checkbox" id="steroid-on"> Patient with adrenal insufficiency on glucocorticoid</label>
+        <p class="hint">If the steroid is given for another indication, consult the prescribing physician.</p>
+        <div id="steroid-block" hidden>
+          <h4>Surgical stress (Table 4, modified Johns Hopkins)</h4>
+          <div class="choices" id="stress-list"></div>
+          <div class="out" id="steroid-out"></div>
+        </div>
+      </details>
+    </section>
+
+    <!-- ============ Summary ============ -->
+    <section class="panel" id="tab-summary" role="tabpanel">
+      <div class="card printable" id="summary"></div>
+    </section>
+  </main>
+
+  <footer class="wrap foot">
+    <p>Decision support only. Final decisions rest with the treating physician. Adapted from an institutional internal-medicine protocol (rev. 26 Dec 2024) based on the 2022 ESC and 2024 AHA/ACC guidelines.</p>
+  </footer>
+
+  <script src="js/data.js"></script>
+  <script src="js/rules.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
